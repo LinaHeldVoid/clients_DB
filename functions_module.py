@@ -1,6 +1,6 @@
 import psycopg2
 
-conn = psycopg2.connect(database="...", user="...", password="...")
+conn = psycopg2.connect(database="data_db", user="postgres", password="Valdian132468795")
 
 
 # Создание таблиц
@@ -112,6 +112,30 @@ def append_phone_number(client_id):
     return
 
 
+# проверка фамилии перед поиском
+def second_name_check(search_point):
+    while True:
+        if zero_input_check(search_point):
+            continue
+        else:
+            with conn.cursor() as cur:
+                cur.execute("""
+                SELECT second_name FROM clients
+                WHERE second_name = %s;
+                """, search_point)
+                check_list = cur.fetchall()
+                print(check_list)
+                if zero_input_check(check_list):
+                    continue
+                else:
+                    data = translate(check_list)
+                    if data is None:
+                        print("Такой информации в реестре нет! Попробуйте ещё раз.")
+                        continue
+                    else:
+                        return search_point
+
+
 # реализация множества или ни одного номера телефона
 def phone_insert():
     phone_list = []
@@ -132,37 +156,250 @@ def phone_insert():
             continue
 
 
+# в таблице нет данных
+def no_data():
+    print("Такой информации в реестре нет! Попробуйте ещё раз.")
+
+
 # поиск клиента в базе
-def search_data(string, check_string, search_point, table):
+# поиск по имени
+def search_by_name(search_point):
     while True:
         if zero_input_check(search_point):
             continue
         else:
+            report = []
             with conn.cursor() as cur:
                 cur.execute("""
-                SELECT %s FROM %s
-                WHERE %s = %s;
-                """, (string, table, check_string, search_point))
-                check_list = cur.fetchall()
-                print(check_list)
-                if zero_input_check(check_list):
-                    continue
+                SELECT name FROM clients
+                WHERE name = %s;
+                """, search_point)
+                name = cur.fetchall()
+                name = translate(name)
+                if zero_input_check(name):
+                    return no_data()
                 else:
-                    data = translate(check_list)
-                    if data is None:
-                        print("Такой информации в реестре нет! Попробуйте ещё раз.")
-                        continue
-                    else:
-                        return search_point
+                    report.append(name)
+                    client_id = get_id_by_name(name)
+                    with conn.cursor() as curr:
+                        curr.execute("""
+                        SELECT second_name FROM clients
+                        WHERE id = %s;
+                        """, (client_id,))
+                        second_name = curr.fetchall()
+                        second_name = translate(second_name)
+                        report.append(second_name)
+                        curr.execute("""
+                        SELECT email FROM email
+                        WHERE client_id = %s;
+                        """, (client_id,))
+                        email = curr.fetchall()
+                        email = translate(email)
+                        report.append(email)
+                        curr.execute("""
+                        SELECT number FROM phone_number
+                        WHERE client_id = %s;
+                        """, (client_id,))
+                        phone_list = curr.fetchall()
+                        phone = []
+                        for numbers in phone_list:
+                            translate(numbers)
+                            phone.append(numbers)
+                        report.append(phone)
+                    return report
 
 
-# поиск id по фамилии клиента
-def get_id(data, table, search_point):
+# поиск по фамилии
+def search_by_second_name(search_point):
+    while True:
+        if zero_input_check(search_point):
+            continue
+        else:
+            report = []
+            with conn.cursor() as cur:
+                cur.execute("""
+                SELECT second_name FROM clients
+                WHERE second_name = %s;
+                """, search_point)
+                second_name = cur.fetchall()
+                second_name = translate(second_name)
+                if zero_input_check(second_name):
+                    return no_data()
+                else:
+                    client_id = get_id_by_second_name(search_point)
+                    with conn.cursor() as curr:
+                        curr.execute("""
+                        SELECT name FROM clients
+                        WHERE id = %s;
+                        """, (client_id,))
+                        name = curr.fetchall()
+                        name = translate(name)
+                        report.append(name)
+                        report.append(second_name)
+                        curr.execute("""
+                        SELECT email FROM email
+                        WHERE client_id = %s;
+                        """, (client_id,))
+                        email = curr.fetchall()
+                        email = translate(email)
+                        report.append(email)
+                        curr.execute("""
+                        SELECT number FROM phone_number
+                        WHERE client_id = %s;
+                        """, (client_id,))
+                        phone_list = curr.fetchall()
+                        phone = []
+                        for numbers in phone_list:
+                            translate(numbers)
+                            phone.append(numbers)
+                        report.append(phone)
+                    return report
+
+
+# поиск по email
+def search_by_email(search_point):
+    while True:
+        if zero_input_check(search_point):
+            continue
+        else:
+            report = []
+            with conn.cursor() as cur:
+                cur.execute("""
+                SELECT email FROM email
+                WHERE email = %s;
+                """, search_point)
+                email = cur.fetchall()
+                email = translate(email)
+                if zero_input_check(email):
+                    return no_data()
+                else:
+                    client_id = get_id_by_email(email)
+                    with conn.cursor() as curr:
+                        curr.execute("""
+                        SELECT name FROM clients
+                        WHERE id = %s;
+                        """, (client_id,))
+                        name = curr.fetchall()
+                        name = translate(name)
+                        report.append(name)
+                        curr.execute("""
+                        SELECT second_name FROM clients
+                        WHERE id = %s;
+                        """, (client_id,))
+                        second_name = curr.fetchall()
+                        second_name = translate(second_name)
+                        report.append(second_name)
+                        report.append(email)
+                        curr.execute("""
+                        SELECT number FROM phone_number
+                        WHERE client_id = %s;
+                        """, (client_id,))
+                        phone_list = curr.fetchall()
+                        phone = []
+                        for numbers in phone_list:
+                            translate(numbers)
+                            phone.append(numbers)
+                        report.append(phone)
+                    return report
+
+
+# поиск по телефону
+def search_by_phone(search_point):
+    while True:
+        if zero_input_check(search_point):
+            continue
+        else:
+            report = []
+            with conn.cursor() as cur:
+                cur.execute("""
+                SELECT number FROM phone_number
+                WHERE number = %s;
+                """, (search_point,))
+                phone_list = cur.fetchall()
+                phone_list = translate(phone_list)
+                if zero_input_check(phone_list):
+                    return no_data()
+                else:
+                    client_id = get_id_by_phone(phone_list)
+                    with conn.cursor() as curr:
+                        curr.execute("""
+                        SELECT name FROM clients
+                        WHERE id = %s;
+                        """, (client_id,))
+                        name = curr.fetchall()
+                        name = translate(name)
+                        report.append(name)
+                        curr.execute("""
+                        SELECT second_name FROM clients
+                        WHERE id = %s;
+                        """, (client_id,))
+                        second_name = curr.fetchall()
+                        second_name = translate(second_name)
+                        report.append(second_name)
+                        curr.execute("""
+                        SELECT email FROM email
+                        WHERE client_id = %s;
+                        """, (client_id,))
+                        email = curr.fetchall()
+                        email = translate(email)
+                        report.append(email)
+                        curr.execute("""
+                        SELECT number FROM phone_number
+                        WHERE client_id = %s;
+                        """, (client_id,))
+                        phone_list = curr.fetchall()
+                        phone = []
+                        for numbers in phone_list:
+                            translate(numbers)
+                            phone.append(numbers)
+                        report.append(phone)
+                    return report
+
+
+# найти нужный id
+# поиск id по имени
+def get_id_by_name(search_point):
     with conn.cursor() as curr:
         curr.execute("""
-        SELECT id FROM %s
-        WHERE %s = %s;
-        """, (table.replace('"', ""), data.replace('"', ""), search_point.replace('"', "")))
+        SELECT id FROM clients
+        WHERE name = %s;
+        """, search_point)
+        client_id = curr.fetchall()
+        client_id = translate(client_id)
+    return client_id
+
+
+# поиск id по фамилии
+def get_id_by_second_name(search_point):
+    with conn.cursor() as curr:
+        curr.execute("""
+        SELECT id FROM clients
+        WHERE second_name = %s;
+        """, search_point)
+        client_id = curr.fetchall()
+        client_id = translate(client_id)
+    return client_id
+
+
+# поиск id по email:
+def get_id_by_email(search_point):
+    with conn.cursor() as curr:
+        curr.execute("""
+        SELECT client_id FROM email
+        WHERE email = %s;
+        """, search_point)
+        client_id = curr.fetchall()
+        client_id = translate(client_id)
+    return client_id
+
+
+# поиск id по email:
+def get_id_by_phone(search_point):
+    with conn.cursor() as curr:
+        curr.execute("""
+        SELECT client_id FROM phone_number
+        WHERE number = %s;
+        """, (search_point,))
         client_id = curr.fetchall()
         client_id = translate(client_id)
     return client_id
@@ -206,20 +443,21 @@ def new_client():
         cur.execute("""
         INSERT INTO email VALUES(%s, %s);
         """, (email, i))
-    while True:
         choice = input("Желаете ввести номер телефона?").lower()
-        if choice.lower() == "да":
-            phone_list = phone_insert()
-            with conn.cursor() as curr:
-                for numbers in phone_list:
-                    curr.execute("""
-                    INSERT INTO phone_number VALUES(%s, %s);
-                    """, (numbers, i))
-        elif choice.lower() == "нет":
-            break
-        else:
-            bad_input()
-            continue
+        while True:
+            if choice.lower() == "да":
+                phone_list = phone_insert()
+                with conn.cursor() as curr:
+                    for numbers in phone_list:
+                        curr.execute("""
+                        INSERT INTO phone_number VALUES(%s, %s);
+                        """, (numbers, i))
+                return
+            elif choice.lower() == "нет":
+                break
+            else:
+                bad_input()
+                continue
     conn.commit()
     return
 
@@ -227,9 +465,9 @@ def new_client():
 # Добавить номер телефона для существующего клиента
 def add_phone_number():
     search_point = input("Введите фамилию клиента: ")
-    search_point = search_data("second_name", "second_name", search_point, "clients")
+    search_point = second_name_check(search_point)
     phone_list = phone_insert()
-    client_id = get_id("second_name", "clients", search_point)
+    client_id = get_id_by_second_name(search_point)
     with conn.cursor() as curr:
         for numbers in phone_list:
             curr.execute("""
@@ -244,8 +482,8 @@ def add_phone_number():
 # изменение данных клиента
 def change_data():
     search_point = input("Введите фамилию клиента: ")
-    search_point = search_data("second_name", "second_name", search_point, "clients")
-    client_id = get_id("second_name", "clients", search_point)
+    search_point = second_name_check(search_point)
+    client_id = get_id_by_second_name(search_point)
     while True:
         data = input("Какую информацию нужно изменить?" + "\n"
                      "1) Имя" + "\n"
@@ -292,8 +530,8 @@ def change_data():
 # Удалить номер телефона для существующего клиента
 def delete_number():
     search_point = input("Введите фамилию клиента: ")
-    search_point = search_data("second_name", "second_name", search_point, "clients")
-    client_id = get_id("second_name", "clients", search_point)
+    search_point = second_name_check(search_point)
+    client_id = get_id_by_second_name(search_point)
     with conn.cursor() as cur:
         cur.execute("""
         DELETE FROM phone_number
@@ -307,8 +545,8 @@ def delete_number():
 # Удалить клиента из базы
 def delete_client():
     search_point = input("Введите фамилию клиента: ")
-    search_point = search_data("second_name", "second_name", search_point, "clients")
-    client_id = get_id("second_name", "clients", search_point)
+    search_point = second_name_check(search_point)
+    client_id = get_id_by_second_name(search_point)
     with conn.cursor() as cur:
         cur.execute("""
         DELETE FROM clients
@@ -346,50 +584,35 @@ def show_data():
                 if zero_input_check(search_point):
                     continue
                 else:
-                    client_id = translate(get_id("name", "clients", search_point))
-                    print(f"ID: {client_id}" + "\n")
-                    name = translate(search_data("name", "name", search_point, "clients"))
-                    print(f"Имя: {name}" + "\n")
-                    second_name = translate(search_data("second_name", "name", search_point, "clients"))
-                    print(f"Фамилия: {second_name}" + "\n")
-                    email = translate(search_data("email", "client_id", client_id, "email"))
-                    print(f"Email: {email}" + "\n")
-                    phone_number = translate(search_data("number", "client_id", client_id, "phone_number"))
-                    print(f"Номер телефона: {phone_number}" + "\n")
-                    break
+                    report = search_by_name(search_point)
+                    print(f"Имя: {report[0]}" + "\n")
+                    print(f"Фамилия: {report[1]}" + "\n")
+                    print(f"Email: {report[2]}" + "\n")
+                    print(f"Номер телефона: {report[3]}" + "\n")
+                    return
         elif data == 2:
             while True:
                 search_point = input("Введите фамилию: ")
                 if zero_input_check(search_point):
                     continue
                 else:
-                    client_id = translate(get_id("second_name", "clients", search_point))
-                    name = translate(search_data("name", "second_name", search_point, "clients"))
-                    second_name = translate(search_data("second_name", "second_name", search_point, "clients"))
-                    email = translate(search_data("email", "client_id", client_id, "email"))
-                    phone_number = translate(search_data("number", "client_id", client_id, "phone_number"))
-                    print(f"ID: {client_id}" + "\n")
-                    print(f"Имя: {name}" + "\n")
-                    print(f"Фамилия: {second_name}" + "\n")
-                    print(f"Email: {email}" + "\n")
-                    print(f"Номер телефона: {phone_number}" + "\n")
-                    break
+                    report = search_by_second_name(search_point)
+                    print(f"Имя: {report[0]}" + "\n")
+                    print(f"Фамилия: {report[1]}" + "\n")
+                    print(f"Email: {report[2]}" + "\n")
+                    print(f"Номер телефона: {report[3]}" + "\n")
+                    return
         elif data == 3:
             while True:
                 search_point = input("Введите email: ")
                 if zero_input_check(search_point):
                     continue
                 else:
-                    client_id = translate(get_id("email", "email", search_point))
-                    name = translate(search_data("name", "id", client_id, "clients"))
-                    second_name = translate(search_data("second_name", "id", client_id, "clients"))
-                    email = translate(search_data("email", "client_id", client_id, "email"))
-                    phone_number = translate(search_data("number", "client_id", client_id, "phone_number"))
-                    print(f"ID: {client_id}" + "\n")
-                    print(f"Имя: {name}" + "\n")
-                    print(f"Фамилия: {second_name}" + "\n")
-                    print(f"Email: {email}" + "\n")
-                    print(f"Номер телефона: {phone_number}" + "\n")
+                    report = search_by_email(search_point)
+                    print(f"Имя: {report[0]}" + "\n")
+                    print(f"Фамилия: {report[1]}" + "\n")
+                    print(f"Email: {report[2]}" + "\n")
+                    print(f"Номер телефона: {report[3]}" + "\n")
                     return
         elif data == 4:
             while True:
@@ -397,16 +620,11 @@ def show_data():
                 if zero_input_check(search_point):
                     continue
                 else:
-                    client_id = translate(get_id("phone_number", "number", search_point))
-                    name = translate(search_data("name", "id", client_id, "clients"))
-                    second_name = translate(search_data("second_name", "id", client_id, "clients"))
-                    email = translate(search_data("email", "client_id", client_id, "email"))
-                    phone_number = translate(search_data("number", "client_id", client_id, "phone_number"))
-                    print(f"ID: {client_id}" + "\n")
-                    print(f"Имя: {name}" + "\n")
-                    print(f"Фамилия: {second_name}" + "\n")
-                    print(f"Email: {email}" + "\n")
-                    print(f"Номер телефона: {phone_number}" + "\n")
+                    report = search_by_phone(search_point)
+                    print(f"Имя: {report[0]}" + "\n")
+                    print(f"Фамилия: {report[1]}" + "\n")
+                    print(f"Email: {report[2]}" + "\n")
+                    print(f"Номер телефона: {report[3]}" + "\n")
                     return
         else:
             bad_input()
