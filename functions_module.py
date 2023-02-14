@@ -1,6 +1,6 @@
 import psycopg2
 
-conn = psycopg2.connect(database="data_db", user="postgres", password="Valdian132468795")
+conn = psycopg2.connect(database="...", user="...", password="...")
 
 
 # Создание таблиц
